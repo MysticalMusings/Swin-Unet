@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils import DiceLoss
 from torchvision import transforms
+from datasets.isic_dataset import IsicDataset
 from utils import test_single_volume
 
 def trainer_synapse(args, model, snapshot_path):
@@ -26,9 +27,10 @@ def trainer_synapse(args, model, snapshot_path):
     num_classes = args.num_classes
     batch_size = args.batch_size * args.n_gpu
     # max_iterations = args.max_iterations
-    db_train = Synapse_dataset(base_dir=args.root_path, list_dir=args.list_dir, split="train",
-                               transform=transforms.Compose(
-                                   [RandomGenerator(output_size=[args.img_size, args.img_size])]))
+    # db_train = Synapse_dataset(base_dir=args.root_path, list_dir=args.list_dir, split="train",
+    #                            transform=transforms.Compose(
+    #                                [RandomGenerator(output_size=[args.img_size, args.img_size])]))
+    db_train = IsicDataset()
     print("The length of train set is: {}".format(len(db_train)))
 
     def worker_init_fn(worker_id):
@@ -81,7 +83,7 @@ def trainer_synapse(args, model, snapshot_path):
                 writer.add_image('train/GroundTruth', labs, iter_num)
 
         save_interval = 50  # int(max_epoch/6)
-        if epoch_num > int(max_epoch / 2) and (epoch_num + 1) % save_interval == 0:
+        if epoch_num > 30 and (epoch_num + 1) % save_interval == 0:
             save_mode_path = os.path.join(snapshot_path, 'epoch_' + str(epoch_num) + '.pth')
             torch.save(model.state_dict(), save_mode_path)
             logging.info("save model to {}".format(save_mode_path))

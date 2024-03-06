@@ -10,7 +10,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from datasets.dataset_synapse import Synapse_dataset
-from utils import test_single_volume
+from datasets.isic_dataset import IsicDataset
+from utils import test_single_volume, get_result
 from networks.vision_transformer import SwinUnet as ViT_seg
 from trainer import trainer_synapse
 from config import get_config
@@ -64,7 +65,8 @@ config = get_config(args)
 
 
 def inference(args, model, test_save_path=None):
-    db_test = args.Dataset(base_dir=args.volume_path, split="test_vol", list_dir=args.list_dir)
+    # db_test = args.Dataset(base_dir=args.volume_path, split="test_vol", list_dir=args.list_dir)
+    db_test = IsicDataset(augment=False, mode="test")
     testloader = DataLoader(db_test, batch_size=1, shuffle=False, num_workers=1)
     logging.info("{} test iterations per epoch".format(len(testloader)))
     model.eval()
@@ -72,8 +74,9 @@ def inference(args, model, test_save_path=None):
     for i_batch, sampled_batch in tqdm(enumerate(testloader)):
         h, w = sampled_batch["image"].size()[2:]
         image, label, case_name = sampled_batch["image"], sampled_batch["label"], sampled_batch['case_name'][0]
-        metric_i = test_single_volume(image, label, model, classes=args.num_classes, patch_size=[args.img_size, args.img_size],
-                                      test_save_path=test_save_path, case=case_name, z_spacing=args.z_spacing)
+        # metric_i = test_single_volume(image, label, model, classes=args.num_classes, patch_size=[args.img_size, args.img_size],
+        #                               test_save_path=test_save_path, case=case_name, z_spacing=args.z_spacing)
+        metric_i = get_result(image, label, net, test_save_path, case_name)
         metric_list += np.array(metric_i)
         logging.info('idx %d case %s mean_dice %f mean_hd95 %f' % (i_batch, case_name, np.mean(metric_i, axis=0)[0], np.mean(metric_i, axis=0)[1]))
     metric_list = metric_list / len(db_test)
@@ -103,7 +106,7 @@ if __name__ == "__main__":
             'Dataset': Synapse_dataset,
             'volume_path': args.volume_path,
             'list_dir': './lists/lists_Synapse',
-            'num_classes': 9,
+            'num_classes': 2,
             'z_spacing': 1,
         },
     }
@@ -117,7 +120,8 @@ if __name__ == "__main__":
 
     net = ViT_seg(config, img_size=args.img_size, num_classes=args.num_classes).cuda()
 
-    snapshot = os.path.join(args.output_dir, 'best_model.pth')
+    snapshot = "/root/autodl-tmp/swin-unet/Swin-Unet/model_out/epoch_99.pth"
+    # snapshot = args.resume
     if not os.path.exists(snapshot): snapshot = snapshot.replace('best_model', 'epoch_'+str(args.max_epochs-1))
     msg = net.load_state_dict(torch.load(snapshot))
     print("self trained swin unet",msg)
